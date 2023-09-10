@@ -1,7 +1,7 @@
 name: several_languages
 description: A new Flutter project.
 version: 0.0.1
-homepage: ''
+homepage: 'https://github.com/alirezabashi98/several_languages.git'
 
 environment:
   sdk: '>=3.0.6 <4.0.0'
