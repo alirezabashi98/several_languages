@@ -6,22 +6,22 @@ const outputDefault = './assets/l10n';
 final shell = Shell();
 
 void main(List<String> args) {
-  List<String> splLanguages = [];
+  List<String> languages = [];
   for (var arg in args) {
     if (arg.startsWith('languages=')) {
       for (var itemLang in args) {
         if (itemLang.startsWith('languages=')) {
           var splLanguages = itemLang.split('=');
-          print('spl = $splLanguages');
-          splLanguages.addAll(splLanguages[1].split(','));
-          print('splList = ${splLanguages[1].split(',')}');
-          break;
+          languages=splLanguages[1].split(',');
         }
       }
-      _build(splLanguages);
+      _build(languages);
     } else {
-      _build([]);
+      _build(languages == [] ? null : languages);
     }
+  }
+  if(args.isEmpty){
+    _build(languages == [] ? null : languages);
   }
 }
 
@@ -89,49 +89,205 @@ output-localization-file: app_localizations.dart
   await pubspecFile.writeAsString(text);
 }
 
-void updateMaterialApp(List<String>? languages) async{
+void updateMaterialApp(List<String>? languages) async {
   // update material app
   final materialAppFile = File('./lib/main.dart');
   final lines = await materialAppFile.readAsLines();
-  await materialAppFile.writeAsString(lines.join('\n'));
+
+  bool isHasFlutterLocalizations = false;
+  bool isHasAppLocalizations = false;
+
+  int? indexStartMaterial;
+  int? indexEndMaterial;
+  int openParenthesisMaterial = 0;
+  int closedParenthesisMaterial = 0;
+  RegExp regexOpenParenthesisMaterial = RegExp(r"\(", multiLine: false);
+  RegExp regexClosedParenthesisMaterial = RegExp(r"\)", multiLine: false);
 
   bool isLocalizationsDelegates = false;
-  int indexStartLocalizationsDelegates;
+  int? indexStartLocalizationsDelegates;
+  int? indexEndLocalizationsDelegates;
+  int openParenthesisLocalizationsDelegates = 0;
+  int closedParenthesisLocalizationsDelegates = 0;
+  RegExp regexOpenParenthesisLocalizationsDelegates =
+      RegExp(r"\[", multiLine: false);
+  RegExp regexClosedParenthesisLocalizationsDelegates =
+      RegExp(r"\]", multiLine: false);
 
   bool isSupportedLocales = false;
+  int? indexStartSupportedLocales;
+  int? indexEndSupportedLocales;
+  int openParenthesisSupportedLocales = 0;
+  int closedParenthesisSupportedLocales = 0;
+  RegExp regexOpenParenthesisSupportedLocales = RegExp(r"\[", multiLine: false);
+  RegExp regexClosedParenthesisSupportedLocales =
+      RegExp(r"\]", multiLine: false);
+
   bool isLocale = false;
+  int? indexLocale;
 
   for (int i = 0; i < lines.length; i++) {
     final line = lines[i];
 
-// todo
-//     if(i == 0){
-//       lines[i] = """
-// import 'package:flutter_localizations/flutter_localizations.dart';
-// import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-// import 'flan';
-// $line
-//       """;
-//     }
+    // checked add dependency
+    if (!isHasFlutterLocalizations &&
+        line.contains(
+            'import \'package:flutter_localizations/flutter_localizations.dart\';')) {
+      isHasFlutterLocalizations = true;
+    }
+    if (!isHasAppLocalizations &&
+        line.contains(
+            'import \'package:flutter_gen/gen_l10n/app_localizations.dart\';')) {
+      isHasAppLocalizations = true;
+    }
 
-    if (line.contains('MaterialApp(')) {
-      for (int j = 0; j < lines.length; j++) {
-        final line = lines[j];
-        final pattern = RegExp('supportedLocales:');
-
-        for (var j in pattern.allMatches(line)) {
-          print(j);
+    /// Find the beginning and end of material
+    if (line.contains('MaterialApp')) {
+      for (int j = i; j < lines.length; j++) {
+        if (regexOpenParenthesisMaterial.hasMatch(lines[j])) {
+          indexStartMaterial ??= j;
+          ++openParenthesisMaterial;
+          print("open : $openParenthesisMaterial");
         }
-
-        if (pattern.allMatches(line).isNotEmpty) {
-          isLocalizationsDelegates = true;
-          indexStartLocalizationsDelegates = i;
+        if (regexClosedParenthesisMaterial.hasMatch(lines[j])) {
+          ++closedParenthesisMaterial;
+          print("close : $closedParenthesisMaterial");
+          if (openParenthesisMaterial != 0 &&
+              openParenthesisMaterial == closedParenthesisMaterial) {
+            indexEndMaterial = j;
+            break;
+          }
         }
       }
-      // todo
-      print('isLocalizationsDelegates = $isLocalizationsDelegates');
-      print('isSupportedLocales = $isSupportedLocales');
-      print('isLocale = $isLocale');
+
+      // Checking whether it is locale or not
+      if (indexEndMaterial != null) {
+        for (int k = i; k < indexEndMaterial; k++) {
+          if (lines[k].contains('locale:')) {
+            isLocale = true;
+            indexLocale ??= k;
+          }
+        }
+      }
+      // Checking whether it is supportedLocales or not
+      if (indexEndMaterial != null) {
+        for (int k = i; k < indexEndMaterial; k++) {
+          if (lines[k].contains('supportedLocales:')) {
+            // There are supportedLocales:
+            isSupportedLocales = true;
+            // First, last, the supporte
+            //
+            // dLocales: delegate parameter: be specified
+            for (int j = k; j < indexEndMaterial; j++) {
+              if (regexOpenParenthesisSupportedLocales.hasMatch(lines[j])) {
+                indexStartSupportedLocales ??= j;
+                ++openParenthesisSupportedLocales;
+                print(
+                    "open s : $openParenthesisSupportedLocales , line : ${lines[j]}");
+              }
+              if (regexClosedParenthesisSupportedLocales.hasMatch(lines[j])) {
+                ++closedParenthesisSupportedLocales;
+                print("close s : $closedParenthesisSupportedLocales");
+                if (openParenthesisSupportedLocales != 0 &&
+                    openParenthesisSupportedLocales ==
+                        closedParenthesisSupportedLocales) {
+                  indexEndSupportedLocales = j;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+      // Checking whether it is localizationsDelegates or not
+      if (indexEndMaterial != null) {
+        for (int k = i; k < indexEndMaterial; k++) {
+          if (lines[k].contains('localizationsDelegates:')) {
+            // There are LocalizationsDelegates
+            isLocalizationsDelegates = true;
+            // First, last, the localization delegate parameter: be specified
+            for (int j = k; j < indexEndMaterial; j++) {
+              if (regexOpenParenthesisLocalizationsDelegates
+                  .hasMatch(lines[j])) {
+                indexStartLocalizationsDelegates ??= j;
+                ++openParenthesisLocalizationsDelegates;
+                print(
+                    "open s : $openParenthesisLocalizationsDelegates , line : ${lines[j]}");
+              }
+              if (regexClosedParenthesisLocalizationsDelegates
+                  .hasMatch(lines[j])) {
+                ++closedParenthesisLocalizationsDelegates;
+                print("close s : $closedParenthesisLocalizationsDelegates");
+                if (openParenthesisLocalizationsDelegates != 0 &&
+                    openParenthesisLocalizationsDelegates ==
+                        closedParenthesisLocalizationsDelegates) {
+                  indexEndLocalizationsDelegates = j;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      print(
+          "if : ${(openParenthesisMaterial != 0 && openParenthesisMaterial == closedParenthesisMaterial)}");
+      print("start : $indexStartMaterial , end : $indexEndMaterial , i : $i");
     }
   }
+
+  // todo log info
+  print(
+      'isLocalizationsDelegates = $isLocalizationsDelegates , start : $indexStartLocalizationsDelegates, end : $indexEndLocalizationsDelegates');
+  print(
+      'isSupportedLocales = $isSupportedLocales , index start : $indexStartSupportedLocales , index end : $indexEndSupportedLocales');
+  print('isLocale = $isLocale , index : $indexLocale');
+
+  // add dependency
+  if (!isHasFlutterLocalizations) {
+    lines[0] =
+        'import \'package:flutter_localizations/flutter_localizations.dart\';\n${lines[0]}';
+  }
+
+  if (!isHasAppLocalizations) {
+    lines[0] =
+        'import \'package:flutter_gen/gen_l10n/app_localizations.dart\';\n${lines[0]}';
+  }
+
+  if (indexStartMaterial != null) {
+    // lines[indexStartMaterial] = "// :) \n ${lines[indexStartMaterial]}";
+
+    // add SupportedLocales:
+    if (!isLocalizationsDelegates) {
+      lines[indexStartMaterial] =
+          '${lines[indexStartMaterial]}\n\t\t\tlocalizationsDelegates: const [\n\t\t\t\tAppLocalizations.delegate, \n\t\t\t\tGlobalMaterialLocalizations.delegate,\n\t\t\t\tGlobalWidgetsLocalizations.delegate,\n\t\t\t\tGlobalCupertinoLocalizations.delegate,\n\t\t\t],';
+    }
+    // add SupportedLocales:
+    if (!isSupportedLocales) {
+      if(languages == null || (languages.length ?? 0) < 1){
+        lines[indexStartMaterial] =
+        '${lines[indexStartMaterial]}\n\t\t\tsupportedLocales: const [\n\t\t\t\tLocale(\'en\'), // English\n\t\t\t],';
+      }else{
+        String listLocal = '';
+        for(var language in languages){
+          listLocal+=('\n\t\t\t\tLocale(\'$language\'), ');
+        }
+        lines[indexStartMaterial] =
+        '${lines[indexStartMaterial]}\n\t\t\tsupportedLocales: const [$listLocal \n\t\t\t],';
+      }
+    }
+    // add locale:
+    if (!isLocale) {
+      if(languages == null || (languages.length ?? 0) < 1) {
+        lines[indexStartMaterial] =
+        '${lines[indexStartMaterial]}\n\t\t\tlocale: const Locale(\'en\'),';
+      }else{
+        lines[indexStartMaterial] =
+        '${lines[indexStartMaterial]}\n\t\t\tlocale: const Locale(\'${languages[0]}\'),';
+      }
+    }
+  }
+
+  /// update main.dart
+  await materialAppFile.writeAsString(lines.join('\n'));
 }
