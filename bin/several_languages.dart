@@ -12,7 +12,7 @@ void main(List<String> args) {
       for (var itemLang in args) {
         if (itemLang.startsWith('languages=')) {
           var splLanguages = itemLang.split('=');
-          languages=splLanguages[1].split(',');
+          languages = splLanguages[1].split(',');
         }
       }
       _build(languages);
@@ -20,7 +20,7 @@ void main(List<String> args) {
       _build(languages == [] ? null : languages);
     }
   }
-  if(args.isEmpty){
+  if (args.isEmpty) {
     _build(languages == [] ? null : languages);
   }
 }
@@ -264,26 +264,57 @@ void updateMaterialApp(List<String>? languages) async {
     }
     // add SupportedLocales:
     if (!isSupportedLocales) {
-      if(languages == null || (languages.length ?? 0) < 1){
+      if (languages == null || (languages.length ?? 0) < 1) {
         lines[indexStartMaterial] =
-        '${lines[indexStartMaterial]}\n\t\t\tsupportedLocales: const [\n\t\t\t\tLocale(\'en\'), // English\n\t\t\t],';
-      }else{
+            '${lines[indexStartMaterial]}\n\t\t\tsupportedLocales: const [\n\t\t\t\tLocale(\'en\'), // English\n\t\t\t],';
+      } else {
         String listLocal = '';
-        for(var language in languages){
-          listLocal+=('\n\t\t\t\tLocale(\'$language\'), ');
+        for (var language in languages) {
+          listLocal += ('\n\t\t\t\tLocale(\'$language\'), ');
         }
         lines[indexStartMaterial] =
-        '${lines[indexStartMaterial]}\n\t\t\tsupportedLocales: const [$listLocal \n\t\t\t],';
+            '${lines[indexStartMaterial]}\n\t\t\tsupportedLocales: const [$listLocal \n\t\t\t],';
       }
     }
-    // add locale:
+    // create folder
+    final l10nDirectory = Directory('./lib/l10n');
+    if (!await l10nDirectory.exists()) {
+      await l10nDirectory.create(recursive: true);
+    }
+    // add .arb file
+// تعداد زبان‌ها
+    int numLanguages = languages?.length ?? 0;
+
+    // اگر هیچ زبانی مشخص نشده یا تعداد زبان‌ها صفر باشد، یک فایل .arb برای پیشفرض ایجاد کنید
+    if (numLanguages == 0) {
+      final defaultFile = File('./lib/l10n/app_en.arb');
+      await defaultFile.writeAsString("""
+{
+  "helloWorld": "Hello World!",
+  "@helloWorld": {
+    "description": "The conventional newborn programmer greeting"
+  }
+}""");
+    } else {
+      // برای هر زبان در لیست زبان‌ها، یک فایل .arb ایجاد کنید
+      for (var language in languages!) {
+        final languageFile = File('./lib/l10n/app_$language.arb');
+        await languageFile.writeAsString("""
+{
+  "helloWorld": "Hello World!",
+  "@helloWorld": {
+    "description": "The conventional newborn programmer greeting"
+  }
+}""");
+      }
+    } // add locale:
     if (!isLocale) {
-      if(languages == null || (languages.length ?? 0) < 1) {
+      if (languages == null || (languages.length ?? 0) < 1) {
         lines[indexStartMaterial] =
-        '${lines[indexStartMaterial]}\n\t\t\tlocale: const Locale(\'en\'),';
-      }else{
+            '${lines[indexStartMaterial]}\n\t\t\tlocale: const Locale(\'en\'),';
+      } else {
         lines[indexStartMaterial] =
-        '${lines[indexStartMaterial]}\n\t\t\tlocale: const Locale(\'${languages[0]}\'),';
+            '${lines[indexStartMaterial]}\n\t\t\tlocale: const Locale(\'${languages[0]}\'),';
       }
     }
   }
